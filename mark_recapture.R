@@ -1,4 +1,5 @@
 library(rstan)
+library(bayesplot)
 
 ## Mark-recapture populations size estimates
 # JCU May, 2022
@@ -9,8 +10,9 @@ library(rstan)
 # population size is a probabilistic maximum likelihood estimate, and population size
 # is treated as continuous.
 
-# The second model called below (M0 model) will be used on simulated data and the real data
-# to estimate population size of bees in urban parks using mark-recapture detection history data.
+# The second model called below (an M0 type model, Otis et al., 1978) 
+# will be used on simulated data and the real data to estimate
+# population size of bees in urban parks using mark-recapture detection history data.
 
 ### Model 1: Lincoln-Peterson model
 # The L-P mathematical model is defined as: Nhat = (M*C)/R
@@ -103,7 +105,9 @@ data$yobs
 nz <- 150 
 yaug <- rbind(data$yobs, array(0, dim = c(nz, data$T)))
 M <- nrow(yaug)
-T <- T
+T <- 3
+N = 100
+omega_point <- N / M
 
 stan_data <- c("yaug", "M", "T")
 
@@ -133,3 +137,22 @@ out <- stan(stan_model,
 
 ## Summarize posteriors
 print(out, digits = 3)
+traceplot(out, pars = c("N", "p", "omega"), inc_warmup = TRUE, nrow = 2)
+
+nobs_in_sim <- nrow(data$yobs)
+color_scheme_set("pink")
+
+matrix <- as.matrix(out)
+N_mean = mean(matrix[,1])
+p <- mcmc_hist(out, pars = c("N"))
+p <- p + labs(x = "Population Size",
+              y = "Frequency in 4000 Draws") +
+  xlim(nobs_in_sim, 150) +
+  geom_vline(xintercept = nobs_in_sim, linetype = "dashed", size = 1) +
+  geom_vline(xintercept = N_mean, linetype = "solid", size = 1)
+p
+    
+mcmc_dens_overlay(out, pars = c("N", "p", "omega"))
+mcmc_pairs(out, pars = c("N", "p", "omega"),
+           off_diag_args = list(size = 1.5))
+
