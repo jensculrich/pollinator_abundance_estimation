@@ -43,14 +43,13 @@ print(sim_fit, c("N"))
 
 
 
-### Model 2: M0 model for population size estimation
-# estimating population size using detection histories
-# following examples from 
+### Model 2: M0 model for population size estimation (Otis et al. 1978)
+# estimating population size using detection histories following examples from 
 # Bayesian population analysis using WinBUGS: a hierarchical perspective
 # Kery & Schaub 2012
 
 ## Define function to simulate data under M0 data.
-# M0, where detection is constant across individuals and through time
+# M0, model where detection is constant across individuals and through time
 # N = population size
 # p = detection probability
 # and T = number of surveys
@@ -84,7 +83,7 @@ data$yobs
 
 # We will apply a model to use these data to make an inference, based on the rules of 
 # probability, of how great N might likely be.
-# When estimating population size using Bayesian MCMC approaches, a formidable technical
+# When estimating population size using Bayesian MCMC approaches, a technical
 # challenge is that the dimension of the parameter N may change at every iteration of
 # the MCMC algorithm. Kery & Schaub use a data augmentation approach to circumvent this issue.
 
@@ -99,16 +98,21 @@ data$yobs
 # Omega, since the expectation of N is Omega*M
 
 # essentially we are now fitting an occupancy model where we will sum up the latent
-# indicators, z.
+# indicators, z, which represent whether potential individuals are 
+# 'occupied' by real individuals despite them potentially not having ever
+# been detected.
 
 # Augment the observed dataset by 150 potential individuals:
-nz <- 150 
+nz <- 150  # choose an arbitrarily large number of new individuals
+# can later check that it was large enough by confirming that the posterior distr
+# of N is not right truncated. Too large slows down computation time.
 yaug <- rbind(data$yobs, array(0, dim = c(nz, data$T)))
-M <- nrow(yaug)
-T <- 3
-N = 100
-omega_point <- N / M
+M <- nrow(yaug) # number of all potential individuals
+T <- 3 # number of survey events (max detections = max number of surveys)
+N = 100 # "True" population size to estimate
+omega_point <- N / M # augmentation mediating parameter to estimate.
 
+## Bundle data to feed the model
 stan_data <- c("yaug", "M", "T")
 
 ## Initial values
@@ -119,10 +123,10 @@ inits <- function() {
 params <- c("N", "p", "omega")
 
 ## MCMC settings
-ni <- 2000
-nt <- 1
-nb <- 1000
-nc <- 4
+n_iterations <- 2000
+n_thin <- 1
+n_burnin <- 1000
+n_chains <- 4
 
 stan_model <- "./mark_recapture_data_augmentation_M0.stan"
 
@@ -131,7 +135,8 @@ out <- stan(stan_model,
             data = stan_data, 
             # init = inits, 
             pars = params,
-            chains = nc, iter = ni, warmup = nb, thin = nt,
+            chains = n_chains, iter = n_iterations, 
+            warmup = n_burnin, thin = n_thin,
             seed = 2,
             open_progress = FALSE)
 
@@ -139,11 +144,15 @@ out <- stan(stan_model,
 print(out, digits = 3)
 traceplot(out, pars = c("N", "p", "omega"), inc_warmup = TRUE, nrow = 2)
 
-nobs_in_sim <- nrow(data$yobs)
+nobs_in_sim <- nrow(data$yobs) # number of individuals observed in the surveys
+# i.e., the minimum population size or size if detection is perfect
 color_scheme_set("pink")
 
+# gather the mean pop size for plot from posterior distribution of N
 matrix <- as.matrix(out)
 N_mean = mean(matrix[,1])
+
+# plot posterior distribution
 p <- mcmc_hist(out, pars = c("N"))
 p <- p + labs(x = "Population Size",
               y = "Frequency in 4000 Draws") +
