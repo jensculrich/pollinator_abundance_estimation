@@ -27,13 +27,13 @@ R <- 18 # Number of individuals captured on the revisit that were marked
 
 my_dat <- c("M", "C", "R")
 
-stan_model <- stan_model("./mark_recapture_simple_LincolnPeterson.stan")
+stan_model <- "./mark_recapture_simple_LincolnPeterson.stan"
 
 # keep iter and chains small just for purposes of making sure the model runs
 n_iter <- 4000
 n_chains <- 4
 n_cores <- 4
-sim_fit <- sampling(stan_model, data = my_dat, 
+sim_fit <- stan(stan_model, data = my_dat, 
                     iter = n_iter, warmup = n_iter*0.5, 
                     chains = n_chains, cores = n_cores, 
                     control=list(adapt_delta=0.9))
