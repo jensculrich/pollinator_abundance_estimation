@@ -1,6 +1,5 @@
 library(rstan)
 library(bayesplot)
-library(tidyverse)
 
 ## Mark-recapture populations size estimates
 # JCU May, 2022
