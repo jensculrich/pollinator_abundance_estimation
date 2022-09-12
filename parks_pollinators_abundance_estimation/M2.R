@@ -57,8 +57,10 @@ data.fn.2 <- function(n_sites = 30, #  R = sites,
   
   ## Ecological process
   
-  ## now add a species-level random effect for abundance
+  ## add a species-level random effect for abundance
+  # both on the intercept (some species more abundant than others)
   species_intercept <- rnorm(n_species, mu_eps, sd_eps)
+  # and on the slope (change in abundance of different species responds differently to management)
   species_slope <- rnorm(n_species, mu_eta, sd_eta)
   
   n_data_per_species <- n_sites
@@ -225,7 +227,7 @@ n_iterations <- 1000
 n_thin <- 1
 n_burnin <- 500
 n_chains <- 4
-n_cores <- 2
+n_cores <- 4
 
 ## Initial values
 # given the number of parameters, the chains need some decent initial values
@@ -343,10 +345,11 @@ abline(0, 1, lwd = 2, col = "black")
 mean(list_of_draws_M2_out_sim$fit_new > list_of_draws_M2_out_sim$fit)
 mean(list_of_draws_M2_out_sim$fit) / mean(list_of_draws_M2_out_sim$fit_new)
 
+
+## I think I fized the goodness of fit test so don't really need this manual check below any more..
 ## let's see if we can do a posterior predictive check based on the parameter estimates from 
 ## the output. Maybe this will help to see if something is wrong with the posterior check 
 ## in the generated quantities block versus the model itself..
-
 
 # inv logit transformation functio
 ilogit <- function(x){
@@ -411,7 +414,7 @@ mean(list_of_draws_M2_out_sim$fit) / mean(list_of_draws_M2_out_sim$fit_new)
 # analysis of real data ############
 ####################################
 
-df <- read.csv("./raw_data_2022.csv")
+df <- read.csv("./parks_pollinators_abundance_estimation/raw_data_2022.csv")
 str(df)
 
 ## Clean and prep data for model fitting
@@ -484,7 +487,7 @@ inits <- lapply(1:n_chains, function(i)
 
 
 # Call STAN model from R 
-stan_model <- "./M2_Nmix.stan"
+stan_model <- "./parks_pollinators_abundance_estimation/M2_Nmix.stan"
 
 ## Call Stan from R
 out_real_M2 <- stan(stan_model,
@@ -515,7 +518,7 @@ abline(0, 1, lwd = 2, col = "black")
 mean(list_of_draws$fit_new > list_of_draws$fit)
 mean(list_of_draws$fit) / mean(list_of_draws$fit_new)
 
-## model M2 doesn't seem like a great fit!!
+## model M2 still doesn't seem like a great fit!!
 
 # plot posterior distribution
 p <- mcmc_hist(out_real_M2, pars = c("alpha0"))
@@ -580,6 +583,63 @@ s <- s + labs(x = "totalN[1]",
   geom_vline(xintercept = data_set$totalN[2], linetype = "solid", size = 1)
 s
 
-# could set up a loop to draw plots for each species and then cowplot them together
+# let's try the manual run of goodness of fit test again and see if it's working
 
+# Expected values for counts across all mcmc steps
+# this seems to work as wanted to need to figure out how to write exactly this
+# into the stan code
+length <- 50
+fit = vector(length = length)
+fit_new = vector(length = length)
+
+for(k in 1:length){
+  eval <- matrix(nrow = R, ncol = T)
+  
+  y <- y
+  E <- matrix(nrow = R, ncol = T)
+  
+  y_new <- matrix(nrow = R, ncol = T)
+  E_new <-  matrix(nrow = R, ncol = T)
+  
+  for(i in 1:R){
+    for(j in 1:T){
+      # eval = N[i] * p[i]
+      eval[i, j] =  eval[i, j] = (rpois(1, exp(list_of_draws[1,]$alpha0 + 
+                                                 (list_of_draws[k,]$alpha1 * X[i]) + 
+                                                 list_of_draws[k,species[i]+16] +
+                                                 (list_of_draws[k,species[i]+40] * X[i]))) # N[i]
+                                  * ilogit(list_of_draws[k,]$beta0 +
+                                             list_of_draws[k,]$beta1 * X[i] +
+                                             list_of_draws[k,species[i]+28]) # p[i]
+      )
+      
+      E[i, j] <- (y[i, j] - eval[i, j])^2 / (eval[i, j] + 0.5)
+      fit[k] = sum(E)
+      
+      y_new[i,j] <- rbinom(1, 
+                           rpois(1, exp(list_of_draws[k,]$alpha0 + 
+                                          (list_of_draws[k,]$alpha1 * X[i]) + 
+                                          list_of_draws[k,species[i]+16] +
+                                          (list_of_draws[k,species[i]+40] * X[i]))),
+                           ilogit(list_of_draws[k,]$beta0 +
+                                    list_of_draws[k,]$beta1 * X[i] +
+                                    list_of_draws[k,species[i]+28]))
+      
+      E_new[i, j] = (y_new[i, j] - eval[i, j])^2 / (eval[i, j] + 0.5)
+      fit_new[k] = sum(E_new)
+      
+    }
+  }
+}
+
+df <- cbind(fit[1:length], fit_new[1:length])
+plot(df[,1], df[,2], main = "", xlab =
+       "Discrepancy actual data", ylab = "Discrepancy replicate data",
+     frame.plot = FALSE,
+     ylim = c(0, 500),
+     xlim = c(0, 500))
+abline(0, 1, lwd = 2, col = "black")
+
+mean(df[,2] > df[,1])
+mean(df[,1]) / mean(df[,2])
 
