@@ -5,7 +5,13 @@
 // and from Kery and Schaub: population analysis using WinBUGS
 // and https://github.com/stan-dev/example-models/blob/master/BPA/Ch.12/Nmix1.stan
 
-// same as model M1 but without random site effect
+// same as model M2 but with site suitability parameter, omega
+// might need to also consider whether omega and the covariate interact?
+// in that sense, and because most sites are occupied by most species,
+// would likely be better to move towards a poisson model with overdispersion in abundance
+
+// this model needs work in the generated quantities block for both predicting totalN
+// and for integrating Omega into the simulation of new data
 
 // Binomial mixture model with covariates
 data {
@@ -118,7 +124,7 @@ model {
   
   // Likelihood
   for (i in 1:R) { // for each siteXspecies
-    if(max_y[i]){
+    if(max_y[i]){ // if a species occurs at a site (on at least one of the T temporal replications)
       vector[K - max_y[i] + 1] lp; // lp vector of length of possible abundances 
       // (from max observed to K) 
       
@@ -130,13 +136,14 @@ model {
       }
       target += log_sum_exp(lp);
     } 
-    else{
+    else{ // a species does not occur at a site on any of T temporal replications
       real lp[2];
       
-      lp[1] = bernoulli_lpmf(0 | omega);
+      lp[1] = bernoulli_lpmf(0 | omega); // site is not suitable for species
       
       for (j in 1:K) {
-        lp[2] = bernoulli_lpmf(1 | omega) 
+        lp[2] = bernoulli_lpmf(1 | omega)  // site is suitable for species, 
+        // and population size is j, but we never observed it there
             + poisson_log_lpmf(max_y[i] + j - 1 | log_lambda[i])
             + binomial_logit_lpmf(y[i] | max_y[i] + j - 1, logit_p[i]); // vectorized over T
       }
@@ -189,7 +196,7 @@ generated quantities {
     for (j in 1:T) {
       // Assess model fit using Chi-squared discrepancy
       // Compute fit statistic E for observed data
-      eval[i, j] = p[i] * N[i]; // expected value at observation i for visit j 
+      eval[i, j] = inv_logit(logit_p[i]) * poisson_log_rng(log_lambda[i]); // expected value at observation i for visit j 
         // (probabilty across visits is fixed) is = expected detection prob * expected abundance
       // how far is real data from expected value: E
       E[i, j] = square(y[i, j] - eval[i, j]) / (eval[i, j] + 0.5);
