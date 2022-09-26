@@ -374,10 +374,10 @@ df <- pivot_wider(df, names_from = visit, values_from = count)
 species <- as.vector(df$species) # vector of species
 sites <- as.vector(df$sites) # vector of sites
 
-y <- as.matrix(df[,4:6]) # count columns
+y <- pull(df[,4]) # ONLY THE FIRST COUNT COLUMN as opposed to [,4:6]
 K <- as.integer(max(y)*2.5) # need to define a maximum population size K
 X <- as.vector(df$X)
-R <- nrow(y)
+R <- length(y)
 T <- ncol(y)
 
 names <- rbind("Bombus mixtus", "Bombus flavifrons", "Agapostemon texanus",
@@ -392,8 +392,8 @@ stan_data <- c("R",
                "sites",
                "n_sites",
                "species",
-               "n_species", 
-               "T", "y", "X", "K")
+               "n_species",
+               "y", "X", "K")
 
 # call model M2, no random effect for site, distes fully interchangeable
 # Parameters monitored
@@ -405,12 +405,6 @@ params <- c("totalN",
             "mu_alpha1",
             "sigma_alpha1_species",
             "alpha1",
-            "beta0",
-            "beta0_species",
-            "sigma_beta0_species",
-            "mu_beta1",
-            "sigma_beta1_species",
-            "beta1",
             "phi",
             "fit",
             "fit_new"
@@ -418,11 +412,12 @@ params <- c("totalN",
 
 
 # MCMC settings
-n_iterations <- 1600
+n_iterations <- 6000
 n_thin <- 1
-n_burnin <- 800
+n_burnin <- 2000
 n_chains <- 4
-n_cores <- 2
+n_cores <- 4
+adapt_delta <- 0.99
 
 ## Initial values
 # given the number of parameters, the chains need some decent initial values
@@ -432,19 +427,15 @@ inits <- lapply(1:n_chains, function(i)
        sigma_alpha0_species = runif(1, 0, 1),
        mu_alpha1 = runif(1, -3, 3),
        sigma_alpha1_species = runif(1, 0, 1),
-       beta0 = runif(1, -1, 1),
-       sigma_beta0_species = runif(1, 0, 1),
-       mu_beta1 = runif(1, -3, 3),
-       sigma_beta1_species = runif(1, 0, 1),
        phi = runif(1, 0, 4)
   )
 )
 
 # Call STAN model from R 
-stan_model <- "./parks_pollinators_abundance_estimation/M5_Nmix_OD_2.stan"
+stan_model <- "./parks_pollinators_abundance_estimation/M6_perfect_detection.stan"
 
 ## Call Stan from R
-out_real_M5 <- stan(stan_model,
+out_real_M6 <- stan(stan_model,
                     data = stan_data, 
                     init = inits, 
                     pars = params,
@@ -452,68 +443,194 @@ out_real_M5 <- stan(stan_model,
                     warmup = n_burnin, thin = n_thin,
                     seed = 1,
                     open_progress = FALSE,
-                    cores = n_cores)
+                    cores = n_cores,
+                    control=list(adapt_delta = adapt_delta)
+)
 
-print(out_real_M5, digits = 3)
+print(out_real_M6, digits = 3)
 
-saveRDS(out_real_M5, "out_real_M5.rds")
-out_real_M5 <- readRDS("out_real_M5.rds")
+saveRDS(out_real_M6, "out_real_M6.rds")
+out_real_M6 <- readRDS("out_real_M6.rds")
 # perhaps revisit: adapt delta, priors, inits, iterations seems ok.
 
-list_of_draws <- as.data.frame(out_real_M5)
+list_of_draws <- as.data.frame(out_real_M6)
 
 # Evaluation of fit
 plot(list_of_draws$fit, list_of_draws$fit_new, main = "", xlab =
        "Discrepancy actual data", ylab = "Discrepancy replicate data",
      frame.plot = FALSE,
-     ylim = c(0, 32000),
-     xlim = c(0, 30000))
+     ylim = c(0, 10000),
+     xlim = c(0, 10000))
 abline(0, 1, lwd = 2, col = "black")
 
 mean(list_of_draws$fit_new > list_of_draws$fit)
 mean(list_of_draws$fit) / mean(list_of_draws$fit_new)
+# decreased model fit! versus model M5
 
 # plot posterior distribution
-p <- mcmc_hist(out_real_M5, pars = c("alpha0"))
+p <- mcmc_hist(out_real_M6, pars = c("alpha0"))
 p <- p + labs(x = "alpha0",
               y = "Frequency in 3,200 Draws") +
   # xlim(nobs_in_sim, 150) +
   geom_vline(xintercept = median(list_of_draws$alpha0), linetype = "solid", size = 1)
 p
 
-p <- mcmc_hist(out_real_M5, pars = c("mu_alpha1"))
+p <- mcmc_hist(out_real_M6, pars = c("mu_alpha1"))
 p <- p + labs(x = "Community mean effect of no-mow habitat on abundance",
               y = "Frequency in 3,200 Draws") +
   # xlim(nobs_in_sim, 150) +
-  geom_vline(xintercept = median(list_of_draws$mu_alpha1), linetype = "solid", size = 1)
+  geom_vline(xintercept = median(list_of_draws$mu_alpha1), linetype = "solid", size = 1) +
+  geom_vline(xintercept = median(list_of_draws$mu_alpha1) + 
+               sd(list_of_draws$mu_alpha1), linetype = "dashed", size = .75) +
+  geom_vline(xintercept = median(list_of_draws$mu_alpha1) - 
+               sd(list_of_draws$mu_alpha1), linetype = "dashed", size = .75) +
+  geom_vline(xintercept = median(list_of_draws$mu_alpha1) + 
+               (2 * sd(list_of_draws$mu_alpha1)), color = "red", linetype = "dashed", size = .75) +
+  geom_vline(xintercept = median(list_of_draws$mu_alpha1) - 
+               (2 * sd(list_of_draws$mu_alpha1)), color = "red", linetype = "dashed", size = .75) +
+  theme(axis.text = element_text(size = 16),
+        axis.title.y = element_text(size = 16),
+        axis.title.x = element_text(size = 16))    
 p
 
 # would be good to add a g linear model plot with mean and species specific response lines
 
-p <- mcmc_hist(out_real_M5, pars = c("beta0"))
-p <- p + labs(x = "beta0",
-              y = "Frequency in 3,200 Draws") +
-  # xlim(nobs_in_sim, 150) +
-  geom_vline(xintercept = median(list_of_draws$beta0), linetype = "solid", size = 1)
-p
+mcmc_dens_overlay(out_real_M6, pars = c("alpha0", "mu_alpha1"))
 
-p <- mcmc_hist(out_real_M5, pars = c("mu_beta1"))
-p <- p + labs(x = "Community mean effect of no-mow habitat on detection",
-              y = "Frequency in 3,200 Draws") +
-  # xlim(nobs_in_sim, 150) +
-  geom_vline(xintercept = median(list_of_draws$mu_beta1), linetype = "solid", size = 1)
-p
+traceplot(out_real_M6, pars = c("alpha0", "mu_alpha1"))
 
-# would be good to add a g linear model plot with mean and species specific response lines
-
-mcmc_dens_overlay(out_real_M5, pars = c("alpha0", "mu_alpha1", 
-                                       "beta0", "mu_beta1"))
-
-traceplot(out_real_M5, pars = c("alpha0", "mu_alpha1", 
-                               "beta0", "mu_beta1"))
-
-mcmc_pairs(out_real_M5, pars = c("alpha0", "mu_alpha1", 
-                                "beta0", "mu_beta1"),
+mcmc_pairs(out_real_M6, pars = c("alpha0", "mu_alpha1"),
            off_diag_args = list(size = 1.5))
 
 
+
+#################
+# Now let's try with max_y per site (most individuals detected on any visit to site)
+#############
+y <- apply(as.matrix(df[,4:6]) , 1, max) # max value from all three visits
+K <- as.integer(max(y)*2.5) # need to define a maximum population size K
+X <- as.vector(df$X)
+R <- length(y)
+T <- ncol(y)
+
+names <- rbind("Bombus mixtus", "Bombus flavifrons", "Agapostemon texanus",
+               "Anthidium oblongatum", "Halictus rubicundus",
+               "Melissodes microsticus", "Megachile montivaga")
+
+species_names <- cbind(cbind(1:7), names)
+
+## Fit the model to the real data
+# Bundle data
+stan_data <- c("R", 
+               "sites",
+               "n_sites",
+               "species",
+               "n_species",
+               "y", "X", "K")
+
+# call model M2, no random effect for site, distes fully interchangeable
+# Parameters monitored
+# Parameters monitored
+params <- c("totalN",
+            "alpha0",
+            "alpha0_species",
+            "sigma_alpha0_species",
+            "mu_alpha1",
+            "sigma_alpha1_species",
+            "alpha1",
+            "phi",
+            "fit",
+            "fit_new"
+)
+
+
+# MCMC settings
+n_iterations <- 6000
+n_thin <- 1
+n_burnin <- 2000
+n_chains <- 4
+n_cores <- 4
+adapt_delta <- 0.99
+
+## Initial values
+# given the number of parameters, the chains need some decent initial values
+# otherwise sometimes they have a hard time starting to sample
+inits <- lapply(1:n_chains, function(i)
+  list(alpha0 = runif(1, -1, 1),
+       sigma_alpha0_species = runif(1, 0, 1),
+       mu_alpha1 = runif(1, -3, 3),
+       sigma_alpha1_species = runif(1, 0, 1),
+       phi = runif(1, 0, 4)
+  )
+)
+
+# Call STAN model from R 
+stan_model <- "./parks_pollinators_abundance_estimation/M6_perfect_detection.stan"
+
+## Call Stan from R
+out_real_M6_ymax <- stan(stan_model,
+                    data = stan_data, 
+                    init = inits, 
+                    pars = params,
+                    chains = n_chains, iter = n_iterations, 
+                    warmup = n_burnin, thin = n_thin,
+                    seed = 1,
+                    open_progress = FALSE,
+                    cores = n_cores,
+                    control=list(adapt_delta = adapt_delta)
+)
+
+print(out_real_M6_ymax, digits = 3)
+
+saveRDS(out_real_M6_ymax, "out_real_M6_ymax.rds")
+out_real_M6_ymax <- readRDS("out_real_M6_ymax.rds")
+# perhaps revisit: adapt delta, priors, inits, iterations seems ok.
+
+list_of_draws <- as.data.frame(out_real_M6_ymax)
+
+# Evaluation of fit
+plot(list_of_draws$fit, list_of_draws$fit_new, main = "", xlab =
+       "Discrepancy actual data", ylab = "Discrepancy replicate data",
+     frame.plot = FALSE,
+     ylim = c(0, 10000),
+     xlim = c(0, 10000))
+abline(0, 1, lwd = 2, col = "black")
+
+mean(list_of_draws$fit_new > list_of_draws$fit)
+mean(list_of_draws$fit) / mean(list_of_draws$fit_new)
+# decreased model fit! versus model M5
+
+# plot posterior distribution
+p <- mcmc_hist(out_real_M6_ymax, pars = c("alpha0"))
+p <- p + labs(x = "alpha0",
+              y = "Frequency in 3,200 Draws") +
+  # xlim(nobs_in_sim, 150) +
+  geom_vline(xintercept = median(list_of_draws$alpha0), linetype = "solid", size = 1)
+p
+
+p <- mcmc_hist(out_real_M6_ymax, pars = c("mu_alpha1"))
+p <- p + labs(x = "Community mean effect of no-mow habitat on abundance",
+              y = "Frequency in 3,200 Draws") +
+  # xlim(nobs_in_sim, 150) +
+  geom_vline(xintercept = median(list_of_draws$mu_alpha1), linetype = "solid", size = 1) +
+  geom_vline(xintercept = median(list_of_draws$mu_alpha1) + 
+               sd(list_of_draws$mu_alpha1), linetype = "dashed", size = .75) +
+  geom_vline(xintercept = median(list_of_draws$mu_alpha1) - 
+               sd(list_of_draws$mu_alpha1), linetype = "dashed", size = .75) +
+  geom_vline(xintercept = median(list_of_draws$mu_alpha1) + 
+               (2 * sd(list_of_draws$mu_alpha1)), color = "red", linetype = "dashed", size = .75) +
+  geom_vline(xintercept = median(list_of_draws$mu_alpha1) - 
+               (2 * sd(list_of_draws$mu_alpha1)), color = "red", linetype = "dashed", size = .75) +
+  theme(axis.text = element_text(size = 16),
+        axis.title.y = element_text(size = 16),
+        axis.title.x = element_text(size = 16))    
+p
+
+# would be good to add a g linear model plot with mean and species specific response lines
+
+mcmc_dens_overlay(out_real_M6_ymax, pars = c("alpha0", "mu_alpha1"))
+
+traceplot(out_real_M6_ymax, pars = c("alpha0", "mu_alpha1"))
+
+mcmc_pairs(out_real_M6_ymax, pars = c("alpha0", "mu_alpha1"),
+           off_diag_args = list(size = 1.5))

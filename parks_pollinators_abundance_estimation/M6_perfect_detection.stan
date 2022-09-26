@@ -45,18 +45,12 @@ parameters {
 transformed parameters {
   vector[R] log_mu; // Log population size (mu as the centering parameter
     // for the negative binomial count distribution).
-  vector[R] logit_p; // Logit detection probability
 
-  
   for (i in 1:R) { // for each site*species combination
     log_mu[i] = // log abundance is equal to..
       alpha0 + // a global intercept plus
       alpha0_species[species[i]] + // a species specific intercept plus 
       (alpha1[species[i]] * X[i]); // a species specific slope
-    logit_p[i] = // logit (detection probability) is equal to..
-      beta0 + // a global intercept plus
-      beta0_species[species[i]] + // a species specific intercept plus 
-      (beta1[species[i]] * X[i]); // a species specific slope
   }
 }
 
@@ -79,35 +73,14 @@ model {
   mu_alpha1 ~ normal(0, 5); // community mean
   sigma_alpha1_species ~ cauchy(0, 2.5); // community variance
   
-  // Detection (Observation Process)
-  beta0 ~ normal(0, 5); // global intercept for abundance
-  
-  beta0_species ~ normal(0, sigma_beta0_species); 
-  // abundance intercept for each species drawn from the community
-  // distribution (variance defined by 1/sigma^2), centered at 0. 
-  sigma_beta0_species ~ cauchy(0, 2.5);
-  
-  beta1 ~ normal(mu_beta1, sigma_beta1_species);
-  // abundance slope (effect of management) for each species drawn from the community
-  // distribution (variance defined by 1/sigma^2), centered at mu_alpha1. 
-  // centering on mu (rather than 0) allows us to estimate the average effect of
-  // the management on abundance across all species.
-  mu_beta1 ~ normal(0, 5); // community mean
-  sigma_beta1_species ~ cauchy(0, 2.5); // community variance
-  
   // abundance overdispersion scale parameter
   phi ~ cauchy(0, 2.5);
   
   // Likelihood
   for (i in 1:R) { // for each siteXspecies
-    vector[K - max_y[i] + 1] lp; // lp vector of length of possible abundances 
     // (from max observed to K) 
-    
-    for (j in 1:(K - max_y[i] + 1)) // for each possible abundance:
     // lp of abundance given ecological model and observational model
-    lp[j] = neg_binomial_2_lpmf(max_y[i] + j - 1 | exp(log_mu[i]), phi)
-      + binomial_logit_lpmf(y[i] | max_y[i] + j - 1, logit_p[i]); // vectorized over T
-    target += log_sum_exp(lp);
+    target += neg_binomial_2_lpmf(y[i] | exp(log_mu[i]), phi);
   }
   
 }
@@ -116,12 +89,12 @@ generated quantities {
   int<lower=0> N[R]; // predicted abundance at each site for each species
   vector[R] p; // detection probability of speciesXsite combos
   
-  matrix[R, T] eval; // Expected values
+  vector[R] eval; // Expected values
   
-  int y_new[R, T]; // new data for counts generated from eval
+  int y_new[R]; // new data for counts generated from eval
     
-  matrix[R, T] E; // squared scaled distance of real data from expected value
-  matrix[R, T] E_new; // squared scaled distance of new data from expected value
+  vector[R] E; // squared scaled distance of real data from expected value
+  vector[R] E_new; // squared scaled distance of new data from expected value
   
   real fit = 0; // sum squared distances of real data across all observation intervals
   real fit_new = 0; // sum squared distances of new data across all observation intervals
@@ -131,17 +104,14 @@ generated quantities {
   // predict abundance given log_mu
   for (i in 1:R) {
     N[i] = neg_binomial_2_rng(exp(log_mu[i]), phi);
-    p[i] = inv_logit(logit_p[i]);
   }
   
   // Bayesian p-value fit. 
     
   // Initialize E and E_new
   for (i in 1:1) {
-    for(j in 1:T) {
-      E[i, j] = 0;
-      E_new[i, j] = 0;
-    }
+      E[i] = 0;
+      E_new[i] = 0;
   }
   
   for (i in 2:R) {
@@ -150,22 +120,20 @@ generated quantities {
   }
   
   for (i in 1:R) {
-    for (j in 1:T) {
       // Assess model fit using Chi-squared discrepancy
       // Compute fit statistic E for observed data
-      eval[i, j] = inv_logit(logit_p[i]) * neg_binomial_2_rng(exp(log_mu[i]), phi); // expected value at observation i for visit j 
+      eval[i] = neg_binomial_2_rng(exp(log_mu[i]), phi); // expected value at observation i for visit j 
         // (probabilty across visits is fixed) is = expected detection prob * expected abundance
       // Compute fit statistic E_new for real data (y)
-      E[i, j] = square(y[i, j] - eval[i, j]) / (eval[i, j] + 0.5);
+      E[i] = square(y[i] - eval[i]) / (eval[i] + 0.5);
       // Generate new replicate data and
-      y_new[i, j] = binomial_rng(N[i], p[i]);
+      y_new[i] = binomial_rng(N[i], 1); // always detect if there
       // Compute fit statistic E_new for replicate data
-      E_new[i, j] = square(y_new[i, j] - eval[i, j]) / (eval[i, j] + 0.5);
-    }
+      E_new[i] = square(y_new[i] - eval[i]) / (eval[i] + 0.5);
     
-    fit = fit + sum(E[i]); // descrepancies for each siteXspecies combo (across 1:T visits)
-    fit_new = fit_new + sum(E_new[i]); // descrepancies for generated data for each 
-                                      // siteXspecies combos (across 1:T visits)
+    fit = fit + E[i]; // descrepancies for each siteXspecies combo 
+    fit_new = fit_new + E_new[i]; // descrepancies for generated data for each 
+                                      // siteXspecies combos 
   }
   
   // to find total abundance PER SPECIES:

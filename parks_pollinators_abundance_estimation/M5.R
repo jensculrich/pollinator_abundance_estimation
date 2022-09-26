@@ -10,11 +10,14 @@ library(bayesplot)
 ## N-mix model to estimate the effect of habitat management on abundance
 ## using a hierarchical, multispecies, metapopulation design
 
-# M4 includes random effects for species 
-# (no random effect for site in M4, because too many parameters to estimate
+# M5 includes random effects for species 
+# (no random effect for site, because too many parameters to estimate
 # from the limited size of the real data set)
+# unlike M4, M5 models the species random intercepts directly rather than a global slope
+# with species adjustments. This way, the species random intercepts can be interpreted 
+# directly as whether or not a species abundance is greater or less across the ecological covariate range
 
-# M4 will consider abundance as arising from a NEGATIVE BINOMIAL distribution
+# M5 will consider abundance as arising from a NEGATIVE BINOMIAL distribution
 # rather than a poisson or zero inflated poisson distribution
 
 ##########################
@@ -485,7 +488,18 @@ p <- mcmc_hist(out_real_M5, pars = c("mu_alpha1"))
 p <- p + labs(x = "Community mean effect of no-mow habitat on abundance",
               y = "Frequency in 3,200 Draws") +
   # xlim(nobs_in_sim, 150) +
-  geom_vline(xintercept = median(list_of_draws$mu_alpha1), linetype = "solid", size = 1)
+  geom_vline(xintercept = median(list_of_draws$mu_alpha1), linetype = "solid", size = 1) +
+  geom_vline(xintercept = median(list_of_draws$mu_alpha1) + 
+               sd(list_of_draws$mu_alpha1), linetype = "dashed", size = .75) +
+  geom_vline(xintercept = median(list_of_draws$mu_alpha1) - 
+               sd(list_of_draws$mu_alpha1), linetype = "dashed", size = .75) +
+  geom_vline(xintercept = median(list_of_draws$mu_alpha1) + 
+               (2 * sd(list_of_draws$mu_alpha1)), color = "red", linetype = "dashed", size = .75) +
+  geom_vline(xintercept = median(list_of_draws$mu_alpha1) - 
+               (2 * sd(list_of_draws$mu_alpha1)), color = "red", linetype = "dashed", size = .75) +
+  theme(axis.text = element_text(size = 16),
+        axis.title.y = element_text(size = 16),
+        axis.title.x = element_text(size = 16))    
 p
 
 # would be good to add a g linear model plot with mean and species specific response lines
@@ -501,10 +515,20 @@ p <- mcmc_hist(out_real_M5, pars = c("mu_beta1"))
 p <- p + labs(x = "Community mean effect of no-mow habitat on detection",
               y = "Frequency in 3,200 Draws") +
   # xlim(nobs_in_sim, 150) +
-  geom_vline(xintercept = median(list_of_draws$mu_beta1), linetype = "solid", size = 1)
+  geom_vline(xintercept = median(list_of_draws$mu_beta1), linetype = "solid", size = 1) +
+  geom_vline(xintercept = median(list_of_draws$mu_beta1) + 
+               sd(list_of_draws$mu_beta1), linetype = "dashed", size = .75) +
+  geom_vline(xintercept = median(list_of_draws$mu_beta1) - 
+               sd(list_of_draws$mu_beta1), linetype = "dashed", size = .75) +
+  geom_vline(xintercept = median(list_of_draws$mu_beta1) + 
+               (2 * sd(list_of_draws$mu_beta1)), color = "red", linetype = "dashed", size = .75) +
+  geom_vline(xintercept = median(list_of_draws$mu_beta1) - 
+               (2 * sd(list_of_draws$mu_beta1)), color = "red", linetype = "dashed", size = .75) +
+  theme(axis.text = element_text(size = 16),
+        axis.title.y = element_text(size = 16),
+        axis.title.x = element_text(size = 16))    
 p
 
-# would be good to add a g linear model plot with mean and species specific response lines
 
 mcmc_dens_overlay(out_real_M5, pars = c("alpha0", "mu_alpha1", 
                                        "beta0", "mu_beta1"))
@@ -517,3 +541,9 @@ mcmc_pairs(out_real_M5, pars = c("alpha0", "mu_alpha1",
            off_diag_args = list(size = 1.5))
 
 
+# would be good to add a g linear model plot with mean and species specific response lines
+## Some required functions 
+expit <- function(x) 1/(1+exp(-x))
+logit <- function(x) log(x/(1-x))  
+
+ggplot 
