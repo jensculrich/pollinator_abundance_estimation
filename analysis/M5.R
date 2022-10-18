@@ -596,16 +596,18 @@ for(i in 1:J){
 # 95% confidence ints
 (q <- q +
     geom_abline(intercept = ilogit(mean(list_of_draws[,26]) +
-                                     2 * sd(list_of_draws[,35])), 
+                                     2 * sd(list_of_draws[,26])), 
                 slope = ilogit(mean(list_of_draws[,26]) + 
-                                 mean(list_of_draws[,35])), 
+                                 mean(list_of_draws[,35]) + 
+                                 2 * sd(list_of_draws[,35])), 
                 lwd = 1, alpha = 0.5,
                 lty = "dashed",
                 col = "blue") +
     geom_abline(intercept = ilogit(mean(list_of_draws[,26]) -
-                                     2 * sd(list_of_draws[,35])), 
+                                     2 * sd(list_of_draws[,26])), 
                 slope = ilogit(mean(list_of_draws[,26]) + 
-                                 mean(list_of_draws[,35])), 
+                                 mean(list_of_draws[,35])-
+                                 2 * sd(list_of_draws[,35])), 
                 lwd = 1, alpha = 0.5,
                 lty = "dashed",
                 col = "blue") 
