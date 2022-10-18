@@ -460,7 +460,7 @@ out_real_M5 <- stan(stan_model,
 print(out_real_M5, digits = 3)
 
 saveRDS(out_real_M5, "out_real_M5.rds")
-out_real_M5 <- readRDS("out_real_M5.rds")
+out_real_M5 <- readRDS("./model_outputs/M5_out_real.rds")
 # perhaps revisit: adapt delta, priors, inits, iterations seems ok.
 
 list_of_draws <- as.data.frame(out_real_M5)
