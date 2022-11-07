@@ -19,6 +19,121 @@ logit <- function(x) log(x/(1-x))
 n_species <- 7 
 
 #-------------------------------------------------
+### Posterior model estimates for effect of habitat on detection and occupancy
+X <- c(0.25, 0.75) 
+Y <- c(mean(list_of_draws[,35]), mean(list_of_draws[,17])) # median detection mean and mean abundance mean
+# lower is mean - 1.96*sd
+lower_95 <- c(mean(list_of_draws[,35]) - 1.96*sd(list_of_draws[,35]), 
+              mean(list_of_draws[,17]) - 1.96*sd(list_of_draws[,17])) 
+upper_95 <- c(mean(list_of_draws[,35]) + 1.96*sd(list_of_draws[,35]), 
+              mean(list_of_draws[,17]) + 1.96*sd(list_of_draws[,17])) 
+
+df_estimates <- as.data.frame(cbind(X, Y, lower_95, upper_95))
+
+species_estimates <- data.frame()
+
+for(i in 1: n_species){
+  
+  species_estimates[1,i] <- mean(list_of_draws[,35+1+i])
+  species_estimates[2,i] <- mean(list_of_draws[,17+1+i])
+  
+}
+
+df_estimates <- cbind(df_estimates, species_estimates)
+
+(s <- ggplot(df_estimates) +
+    geom_errorbar(aes(x=X, ymin=lower_95, ymax =upper_95),
+                  color="black",width=0.1,size=1,alpha=0.5) +
+    theme_bw() +
+    # scale_color_viridis(discrete=TRUE) +
+    scale_x_continuous(name="Community Mean Effect of Meadow Habitat", breaks = c(0.25, 0.75),
+                       labels=c("detection", "abundance"),
+                       limits = c(0,1)) +
+    scale_y_continuous(name="Posterior Model Estimate",
+                       limits = c(-3, 3)) +
+    guides(color = guide_legend(title = "")) +
+    geom_hline(yintercept = 0, lty = "dashed") +
+    theme(legend.text=element_text(size=10),
+          axis.text.x = element_text(size = 18),
+          axis.text.y = element_text(size = 18),
+          axis.title.x = element_text(size = 18),
+          axis.title.y = element_text(size = 18),
+          panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+          panel.background = element_blank(), axis.line = element_line(colour = "black"))
+)
+
+for(i in 1: n_species){
+  
+  test <- as.data.frame(cbind(X, df_estimates[1:2,4+i]))
+  colnames(test) <- c("X", "Y")
+  
+  s <- s + geom_point(data = test, aes(x=X, y=Y), 
+                      col = "skyblue", size = 12, shape = "-", alpha = 0.5)
+  
+}
+
+(s <- s +
+    geom_point(aes(x=X, y=Y),
+               size = 6, alpha = 0.8) 
+)
+
+#-------------------------------------------------
+### Posterior model estimates for naive regression
+X <- c(0.5) 
+Y <- c(mean(list_of_draws_ymax[,17])) # median detection mean and mean abundance mean
+# lower is mean - 1.96*sd
+lower_95 <- c(mean(list_of_draws_ymax[,17]) - 1.96*sd(list_of_draws_ymax[,17])) 
+upper_95 <- c(mean(list_of_draws_ymax[,17]) + 1.96*sd(list_of_draws_ymax[,17])) 
+
+df_estimates <- as.data.frame(cbind(X, Y, lower_95, upper_95))
+
+species_estimates <- data.frame()
+
+for(i in 1: n_species){
+  
+  species_estimates[1,i] <- mean(list_of_draws_ymax[,17+1+i])
+  
+}
+
+df_estimates <- cbind(df_estimates, species_estimates)
+
+(t <- ggplot(df_estimates) +
+    geom_point(aes(x=X, y=Y),
+               size = 3) +
+    geom_errorbar(aes(x=X, ymin=lower_95, ymax =upper_95),
+                  color="black",width=0.05,size=1,alpha=0.5) +
+    theme_bw() +
+    # scale_color_viridis(discrete=TRUE) +
+    scale_x_continuous(name="Community Mean Effect of Meadow Habitat", breaks = c(0.5),
+                       labels=c("abundance"),
+                       limits = c(0,1)) +
+    scale_y_continuous(name="Posterior Model Estimate",
+                       limits = c(-3, 3)) +
+    guides(color = guide_legend(title = "")) +
+    geom_hline(yintercept = 0, lty = "dashed") +
+    theme(legend.text=element_text(size=10),
+          axis.text.x = element_text(size = 18),
+          axis.text.y = element_text(size = 18),
+          axis.title.x = element_text(size = 18),
+          axis.title.y = element_text(size = 18),
+          panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+          panel.background = element_blank(), axis.line = element_line(colour = "black"))
+)
+
+for(i in 1: n_species){
+  
+  test <- as.data.frame(cbind(X, df_estimates[1,4+i]))
+  colnames(test) <- c("X", "Y")
+  
+  t <- t + geom_point(data = test, aes(x=X, y=Y), 
+                      col = "skyblue", size = 12, shape = "-", alpha = 0.7)
+  
+}
+
+t
+
+
+#-------------------------------------------------
 ### New data
 
 ## M5
@@ -217,115 +332,3 @@ r
                 col = "blue") 
 )
 
-#-------------------------------------------------
-### Posterior model estimates for effect of habitat on detection and occupancy
-X <- c(0.25, 0.75) 
-Y <- c(mean(list_of_draws[,35]), mean(list_of_draws[,17])) # median detection mean and mean abundance mean
-# lower is mean - 1.96*sd
-lower_95 <- c(mean(list_of_draws[,35]) - 1.96*sd(list_of_draws[,35]), 
-              mean(list_of_draws[,17]) - 1.96*sd(list_of_draws[,17])) 
-upper_95 <- c(mean(list_of_draws[,35]) + 1.96*sd(list_of_draws[,35]), 
-              mean(list_of_draws[,17]) + 1.96*sd(list_of_draws[,17])) 
-
-df_estimates <- as.data.frame(cbind(X, Y, lower_95, upper_95))
-
-species_estimates <- data.frame()
-
-for(i in 1: n_species){
-  
-  species_estimates[1,i] <- mean(list_of_draws[,35+1+i])
-  species_estimates[2,i] <- mean(list_of_draws[,17+1+i])
-  
-}
-
-df_estimates <- cbind(df_estimates, species_estimates)
-
-(s <- ggplot(df_estimates) +
-   geom_point(aes(x=X, y=Y),
-               size = 3) +
-  geom_errorbar(aes(x=X, ymin=lower_95, ymax =upper_95),
-                color="black",width=0.05,size=1,alpha=0.5) +
-   theme_bw() +
-   # scale_color_viridis(discrete=TRUE) +
-   scale_x_continuous(name="Community Mean Effect of Meadow Habitat", breaks = c(0.25, 0.75),
-                      labels=c("detection", "abundance"),
-                      limits = c(0,1)) +
-   scale_y_continuous(name="Posterior Model Estimate",
-                      limits = c(-3, 3)) +
-   guides(color = guide_legend(title = "")) +
-   geom_hline(yintercept = 0, lty = "dashed") +
-   theme(legend.text=element_text(size=10),
-         axis.text.x = element_text(size = 18),
-         axis.text.y = element_text(size = 18),
-         axis.title.x = element_text(size = 18),
-         axis.title.y = element_text(size = 18),
-         panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
-         panel.background = element_blank(), axis.line = element_line(colour = "black"))
-)
-
-for(i in 1: n_species){
-  
-  test <- as.data.frame(cbind(X, df_estimates[1:2,4+i]))
-  colnames(test) <- c("X", "Y")
-  
-  s <- s + geom_point(data = test, aes(x=X, y=Y), 
-             col = "skyblue", size = 12, shape = "-", alpha = 0.7)
-  
-}
-
-s
-
-#-------------------------------------------------
-### Posterior model estimates for naive regression
-X <- c(0.5) 
-Y <- c(mean(list_of_draws_ymax[,17])) # median detection mean and mean abundance mean
-# lower is mean - 1.96*sd
-lower_95 <- c(mean(list_of_draws_ymax[,17]) - 1.96*sd(list_of_draws_ymax[,17])) 
-upper_95 <- c(mean(list_of_draws_ymax[,17]) + 1.96*sd(list_of_draws_ymax[,17])) 
-
-df_estimates <- as.data.frame(cbind(X, Y, lower_95, upper_95))
-
-species_estimates <- data.frame()
-
-for(i in 1: n_species){
-  
-  species_estimates[1,i] <- mean(list_of_draws_ymax[,17+1+i])
-  
-}
-
-df_estimates <- cbind(df_estimates, species_estimates)
-
-(t <- ggplot(df_estimates) +
-    geom_point(aes(x=X, y=Y),
-               size = 3) +
-    geom_errorbar(aes(x=X, ymin=lower_95, ymax =upper_95),
-                  color="black",width=0.05,size=1,alpha=0.5) +
-    theme_bw() +
-    # scale_color_viridis(discrete=TRUE) +
-    scale_x_continuous(name="Community Mean Effect of Meadow Habitat", breaks = c(0.5),
-                       labels=c("abundance"),
-                       limits = c(0,1)) +
-    scale_y_continuous(name="Posterior Model Estimate",
-                       limits = c(-3, 3)) +
-    guides(color = guide_legend(title = "")) +
-    geom_hline(yintercept = 0, lty = "dashed") +
-    theme(legend.text=element_text(size=10),
-          axis.text.x = element_text(size = 18),
-          axis.text.y = element_text(size = 18),
-          axis.title.x = element_text(size = 18),
-          axis.title.y = element_text(size = 18),
-          panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
-          panel.background = element_blank(), axis.line = element_line(colour = "black"))
-)
-
-for(i in 1: n_species){
-  
-  test <- as.data.frame(cbind(X, df_estimates[1,4+i]))
-  colnames(test) <- c("X", "Y")
-  
-  t <- t + geom_point(data = test, aes(x=X, y=Y), 
-                      col = "skyblue", size = 12, shape = "-", alpha = 0.7)
-  
-}
-
-t
