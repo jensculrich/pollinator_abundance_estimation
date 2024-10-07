@@ -359,7 +359,7 @@ mean(list_of_draws_M5_out_sim$fit) / mean(list_of_draws_M5_out_sim$fit_new)
 # analysis of real data ############
 ####################################
 
-df <- read.csv("./parks_pollinators_abundance_estimation/raw_data_2022.csv")
+df <- read.csv("./analysis/raw_data_2022.csv")
 str(df)
 
 ## Clean and prep data for model fitting
@@ -421,11 +421,11 @@ params <- c("totalN",
 
 
 # MCMC settings
-n_iterations <- 1600
+n_iterations <- 300
 n_thin <- 1
-n_burnin <- 800
+n_burnin <- 150
 n_chains <- 4
-n_cores <- 2
+n_cores <- 4
 
 ## Initial values
 # given the number of parameters, the chains need some decent initial values
@@ -444,7 +444,7 @@ inits <- lapply(1:n_chains, function(i)
 )
 
 # Call STAN model from R 
-stan_model <- "./parks_pollinators_abundance_estimation/M5_Nmix_OD_2.stan"
+stan_model <- "./models/M5_Nmix_OD_2.stan"
 
 ## Call Stan from R
 out_real_M5 <- stan(stan_model,
