@@ -4,7 +4,7 @@ library(bayesplot)
 
 
 ##########################
-# Model M4 ###############
+# Model M5 ###############
 ##########################
 
 ## N-mix model to estimate the effect of habitat management on abundance

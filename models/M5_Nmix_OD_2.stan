@@ -29,15 +29,15 @@ data {
 
 transformed data {
   int<lower=0> max_y[R];
-  int<lower=0> N_ll;
-  int tmp[R];
+  //int<lower=0> N_ll;
+  //int tmp[R];
   
   for (i in 1:R) {
     max_y[i] = max(y[i]);
-    tmp[i] = K - max_y[i] + 1;
+    //tmp[i] = K - max_y[i] + 1;
   }
   
-  N_ll = sum(tmp);
+  //N_ll = sum(tmp);
 }
 
 parameters {
@@ -139,6 +139,9 @@ model {
 }
 
 generated quantities {
+  
+  // Posterior Predictive Check
+  
   int<lower=0> N[R]; // predicted abundance at each site for each species
   vector[R] p; // detection probability of speciesXsite combos
   
@@ -159,8 +162,6 @@ generated quantities {
     N[i] = neg_binomial_2_rng(exp(log_mu[i]), phi);
     p[i] = inv_logit(logit_p[i]);
   }
-  
-  // Bayesian p-value fit. 
     
   // Initialize E and E_new
   for (i in 1:1) {
